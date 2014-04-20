@@ -31,6 +31,7 @@
 
 package bitzguild.mkt.event.compress;
 
+import bitzguild.ts.datetime.DateTime;
 import bitzguild.ts.datetime.MutableDateTime;
 import bitzguild.ts.event.TimeSpec;
 import bitzguild.ts.event.TimeUnits;
@@ -75,6 +76,17 @@ public class Compress2Seconds extends Compress2Time {
 		_increment = Math.max(1, Math.min(incr, COMPRESSION_30));
 		_compressionSpec.length = _increment;
 	}
+
+    /**
+     * Needs to be explicitly enabled in subclass
+     *
+     * @param millis milliseconds since midnight
+     * @return whether threshold meets gap criteria
+     */
+    public boolean meetsGapThreshold(int millis) {
+        return millis < DateTime.MillisInMinute*2;
+    }
+
 
 	// ------------------------------------------
 	// QuoteChain interface

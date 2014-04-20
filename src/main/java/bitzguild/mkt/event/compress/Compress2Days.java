@@ -69,7 +69,7 @@ public class Compress2Days extends CompressDayOrGreater {
 	// ------------------------------------------
 
 	protected void incrementToNextPeriod(MutableDateTime dt) {
-		dt.nextWeekday();
+        dt.addDays(1);
 		dt.setMillisSinceMidnight(0);
 	}
 

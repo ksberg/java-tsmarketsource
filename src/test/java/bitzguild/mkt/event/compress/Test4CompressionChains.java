@@ -162,8 +162,8 @@ public class Test4CompressionChains {
         Tick2Quotes ticker = new Tick2Quotes();
         ticker
                 .feeds(new Compress2Seconds(1))
-                .feeds(new Compress2Minutes(1))
                 .feeds(new Compress2Minutes(5))
+                .feeds(new Compress2Minutes(1))
                 .feeds(new Compress2Minutes(10))
                 .feeds(new Compress2Days(1))
                 .feeds(new Compress2Hours(1))

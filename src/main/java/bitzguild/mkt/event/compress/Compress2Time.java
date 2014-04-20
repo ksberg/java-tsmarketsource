@@ -35,6 +35,7 @@ import bitzguild.mkt.event.MutableQuote;
 import bitzguild.mkt.event.Quote;
 import bitzguild.mkt.event.QuoteChain;
 import bitzguild.mkt.event.QuoteListener;
+import bitzguild.ts.datetime.DateTime;
 import bitzguild.ts.datetime.ImmutableDateTime;
 import bitzguild.ts.datetime.MutableDateTime;
 import bitzguild.ts.event.TimeSpec;
@@ -80,8 +81,10 @@ public class Compress2Time implements QuoteCompression {
 	protected long              _nextDateTimeFrame;
     protected long              _nextFrameBoundary;
 
+    protected MutableDateTime   _nextDateTimeFrameDT;
+    protected MutableDateTime   _priorDateTimeFrameDT;
 
-	// ------------------------------------------
+    // ------------------------------------------
 	// Existence
 	// ------------------------------------------
 
@@ -109,6 +112,9 @@ public class Compress2Time implements QuoteCompression {
         _nextFrameBoundary = _nextDateTimeFrame;
 		_nextEventProcessor = QuoteChain.TERMINAL;
         _compressedEventListener = QuoteListener.TERMINAL;
+
+        _nextDateTimeFrameDT = new MutableDateTime();
+        _priorDateTimeFrameDT = new MutableDateTime(_nextDateTimeFrame);
     }
 
 	// ------------------------------------------
@@ -127,7 +133,7 @@ public class Compress2Time implements QuoteCompression {
 
     protected void alignTime(MutableDateTime dt) {
         dt.setHoursMinutesSeconds(dt.hours(), dt.minutes(), 0);
-        System.out.println("ALIGNED: " + dt);
+        //System.out.println("ALIGNED: " + dt);
     }
 
     protected long alignFrameWithSpec(long inrep) {
@@ -156,6 +162,8 @@ public class Compress2Time implements QuoteCompression {
     }
 
 
+    // TODO: use DateTimeRange for pinning current and next frames
+
     public void update(Quote inquote) {
 
         if (inquote.datetimeRep() < _nextDateTimeFrame) {
@@ -174,7 +182,9 @@ public class Compress2Time implements QuoteCompression {
 				_datetimeIncr = new MutableDateTime(specAlignedIncomdingFrame);
 			}
 
-            if (specAlignedIncomdingFrame > _nextDateTimeFrame) {
+            if (specAlignedIncomdingFrame > _nextDateTimeFrame
+                    && shouldFillGaps()
+                    && gapIsWithinThreshold(_nextDateTimeFrame,specAlignedIncomdingFrame)) {
                 fillGap(_nextDateTimeFrame, specAlignedIncomdingFrame, _quoteCompressed, inquote);
             } else {
                 _quoteCompressed.with( specAlignedIncomdingFrame,
@@ -182,8 +192,11 @@ public class Compress2Time implements QuoteCompression {
                         inquote.volume());
             }
 
+            _priorDateTimeFrameDT.setRep(_nextDateTimeFrame);   // tmp debug
             incrementToNextPeriod(_datetimeIncr);
 			_nextDateTimeFrame = _datetimeIncr.rep();
+            _nextDateTimeFrameDT.setRep(_nextDateTimeFrame);    // tmp debug
+
             _nextEventProcessor.update(_quoteCompressed);
 		}
 	}
@@ -197,26 +210,53 @@ public class Compress2Time implements QuoteCompression {
 		_nextEventProcessor = QuoteChain.TERMINAL;
     }
 
-    public void fillGap(long firstDT, long finalDT, Quote compression, Quote inquote) {
-        if (firstDT == ZERODAY) return;
+    /**
+     * Generic policy is fill gaps on MINUTE frame and below.
+     *
+     * @return boolean
+     */
+    public boolean shouldFillGaps() { return this._compressionSpec.units < TimeUnits.HOUR; }
 
-        MutableDateTime dt = new MutableDateTime(firstDT);
+    /**
+     * Needs to be explicitly enabled in subclass
+     *
+     * @param millis milliseconds since midnight
+     * @return whether threshold meets gap criteria
+     */
+    public boolean meetsGapThreshold(int millis) {
+        return false;
+    }
+
+    private boolean gapIsWithinThreshold(long firstDT, long lastDT) {
+        if (firstDT == ZERODAY) return false;
+        MutableDateTime fdt = new MutableDateTime(firstDT);
+        MutableDateTime ldt = new MutableDateTime(lastDT);
+        return meetsGapThreshold(Math.abs(ldt.millisecondsSinceMidnight() - fdt.millisecondsSinceMidnight()));
+    }
+
+    public void fillGap(long firstDT, long lastDT, Quote compression, Quote inquote) {
+
+        MutableDateTime fdt = new MutableDateTime(firstDT);
+        MutableDateTime ldt = new MutableDateTime(lastDT);
+
+        if (fdt.day() != ldt.day()) return; // skip gaps between trading day periods
+
         MutableQuote mergeQuote = new MutableQuote(inquote);
-        mergeQuote.setDateTimeRep(finalDT);
+        mergeQuote.setDateTimeRep(lastDT);
         _quoteCompressed.with( firstDT,compression.close(), compression.close(), compression.close(), compression.close(),0L);
 
-        long fillerDT = dt.rep();
+        long fillerDT = firstDT;
 
         int count = 0;
-        while(fillerDT < finalDT) {
+        while(fillerDT < lastDT) {
             _quoteCompressed.setDateTimeRep(fillerDT);
             _compressedEventListener.update(_quoteCompressed);
-            incrementToNextPeriod(dt);
-            fillerDT = dt.rep();
+            incrementToNextPeriod(fdt);
+            fillerDT = fdt.rep();
             count++;
         }
         _quoteCompressed.merge(mergeQuote);    // add to existing
-        _quoteCompressed.setDateTimeRep(finalDT);
+        _quoteCompressed.setDateTimeRep(lastDT);
 
 //        System.out.print("*** FILLED GAP *** ");
 //        System.out.println(new ImmutableDateTime(finalDT) + " > "

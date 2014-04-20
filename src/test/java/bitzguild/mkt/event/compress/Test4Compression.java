@@ -3,8 +3,8 @@ package bitzguild.mkt.event.compress;
 import bitzguild.mkt.event.*;
 import bitzguild.mkt.event.gen.TickGenerator;
 import bitzguild.ts.datetime.DateTimeIterator;
-import bitzguild.ts.datetime.DateUtil;
 import bitzguild.ts.datetime.MutableDateTime;
+import bitzguild.ts.event.TimeSpec;
 import bitzguild.ts.event.gen.DoubleGenerator;
 import bitzguild.mkt.io.QuoteCollector;
 
@@ -12,10 +12,11 @@ import org.junit.After;
 import org.junit.Before;
 import org.junit.Test;
 
-import java.util.ArrayList;
+import java.util.List;
 
 import static junit.framework.Assert.assertTrue;
 import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertThat;
 
 public class Test4Compression {
 
@@ -41,17 +42,22 @@ public class Test4Compression {
     // ----------------------------------------------------------------------
 
 
-
+    /**
+     * Ensure 1 second past end of day is sufficient to trigger
+     * update for final hour when filtered through lower frame.
+     * Fixes end of chain frame waiting on prior frame to trigger.
+     * (e.g. ensure 24:00:00.000 is triggered at 24:00:00.001,
+     * not 24:30:00.000 for example below).
+     */
     @Test
     public void test1DayHourlyCompressionFromSecondTicks() {
         TickGenerator tg = tickGeneratorForDate(2014,4,17,everySecond);
-        CompressPassthrough root = new CompressPassthrough();
-        Tick2Quotes ticker = new Tick2Quotes(root);
+        Tick2Quotes ticker = new Tick2Quotes();
         QuoteCollector collector = new QuoteCollector();
 
         ticker
-            .feeds(root)
-            .feeds(new Compress2Hours(1).connect(collector));
+                .feeds(new Compress2Minutes(30))
+                .feeds(new Compress2Hours(1).connect(collector));
 
         long seconds = TimeSpecHelper.SecondsInDay + 1;
         for(long i=0; i<seconds; i++) { ticker.update(tg.next()); }
@@ -66,18 +72,15 @@ public class Test4Compression {
     public void testCascadingCompressionFromTicksOnWeekday() {
 
         TickGenerator tg = tickGeneratorForDate(2014,4,16,everySecond); // A Wednesday
-        CompressPassthrough root = new CompressPassthrough();
-        Tick2Quotes ticker = new Tick2Quotes(root);
+        Tick2Quotes ticker = new Tick2Quotes();
         QuoteCollector minute01 = new QuoteCollector();
         QuoteCollector minute05 = new QuoteCollector();
-        QuoteCollector minute10 = new QuoteCollector();
         QuoteCollector minute15 = new QuoteCollector();
         QuoteCollector minute30 = new QuoteCollector();
         QuoteCollector hours = new QuoteCollector();
         QuoteCollector days = new QuoteCollector();
 
         ticker
-            .feeds(root)
             .feeds(new Compress2Minutes(1).connect(minute01))
             .feeds(new Compress2Minutes(5).connect(minute05))
             .feeds(new Compress2Minutes(15).connect(minute15))
@@ -89,18 +92,24 @@ public class Test4Compression {
 
         for(long i=0; i<seconds; i++) { ticker.update(tg.next()); }
 
-        printOrAssert(VERBOSE, "1-Minute events in 1 day",    minute01.quotes.size(), 60*24);
-        printOrAssert(VERBOSE, "5-Minute events in 1 day",    minute05.quotes.size(), 60*24 / 5);
-        printOrAssert(VERBOSE, "15-Minute events in 1 day",   minute15.quotes.size(), 60*24 / 15);
-        printOrAssert(VERBOSE, "30-Minute events in 1 day",   minute30.quotes.size(), 60*24 / 30);
-        printOrAssert(VERBOSE, "1-Hour events in 1 day",      hours.quotes.size(), 24);
-        printOrAssert(VERBOSE, "1-Day events in 1 day",       days.quotes.size(), 1);
+        checkFeedResult("1-Minute events in 1 day",     minute01.quotes.size(), 60 * 24);
+        checkFeedResult("5-Minute events in 1 day",     minute05.quotes.size(), 60 * 24 / 5);
+        checkFeedResult("15-Minute events in 1 day",    minute15.quotes.size(), 60 * 24 / 15);
+        checkFeedResult("30-Minute events in 1 day",    minute30.quotes.size(), 60 * 24 / 30);
+        checkFeedResult("1-Hour events in 1 day",       hours.quotes.size(), 24);
+        checkFeedResult("1-Day events in 1 day",        days.quotes.size(), 1);
 
-        System.out.println("\nSpecifics on 15-Minutes");
-        for(Quote q : minute15.quotes) System.out.println(q);
+//        System.out.println("\nSpecifics on 15-Minutes");
+//        for(Quote q : minute15.quotes) System.out.println(q);
     }
 
-
+    /**
+     * Test lower resolution bars where feed updates may not be as frequent.
+     * Filler Quotes are time frames missing from feed that are inserted into
+     * the listener stream to maintain consistent TimeSpec. The behavior is
+     * that missing Quotes should have zero volume and OHLC same as close
+     * of the prior bar.
+     */
     @Test
     public void testSecondFrameGaps() {
         int factor = 60;
@@ -118,64 +127,93 @@ public class Test4Compression {
         Quote first = collector.quotes.get(0);
         MutableDateTime t = new MutableDateTime(first.datetimeRep());
 
+        double lastClose = 0.0;
         for(Quote q : collector.quotes) {
-            // System.out.println(t + " vs " + q.datetime() + " from " + q);
+            System.out.println(t + " vs " + q.datetime() + " from " + q);
             assertTrue("DateTime must increment by TimeSpec units", t.rep() == q.datetimeRep());
+            if (t.seconds() == 0) {
+                assertTrue("Feed Quote should have non-zero volume",q.volume() > 0);
+                lastClose = q.close();
+            } else {
+                assertTrue("Fill Quote should have zero volume", q.volume() == 0);
+                assertTrue("Fill Quote open should equal close", q.open() == q.close());
+                assertTrue("Fill Quote high should equal low", q.high() == q.low());
+                assertTrue("Fill Quote open should equal last close", q.open() == lastClose);
+            }
             t.addSeconds(frame);
         }
-
-        System.out.println("TEST quotes = " + collector.quotes.size());
-
-//        printOrAssert(false, "30-Second events in 1 hour",    collector.quotes.size(), 60*60 / 30);
-
-        // verify time increment is monotonic increasing
-        // according to timespec
     }
 
-    /*
-    @Test
-    public void test1DayCompressionFromSecondTicks() {
 
-        TickGenerator tg = tickGeneratorForDate(2014,4,17);
-        CompressPassthrough root = new CompressPassthrough();
-        Tick2Quotes ticker = new Tick2Quotes(root);
-        QuoteCollector days = new QuoteCollector();
-        Compress2Days compressor = new Compress2Days(1);
+    @Test
+    public void testOverWeekendFrames() {
+
+        TickGenerator tg = tickGeneratorForDate(2014,4,18,everySecond); // A Friday
+        Tick2Quotes ticker = new Tick2Quotes();
 
         ticker
-                .feeds(root)
-                .feeds(compressor.connect(days));
+            .feeds(new Compress2Minutes(1).connect(new QuoteCollector()))
+            .feeds(new Compress2Minutes(5).connect(new QuoteCollector()))
+            .feeds(new Compress2Minutes(15).connect(new QuoteCollector()))
+            .feeds(new Compress2Minutes(30).connect(new QuoteCollector()))
+            .feeds(new Compress2Hours(1).connect(new QuoteCollector()))
+            .feeds(new Compress2Days(1).connect(new QuoteCollector()));
 
+        int ndays = 2;
+        long seconds = ndays * TimeSpecHelper.SecondsInDay + 1;
+
+        for(long i=0; i<seconds; i++) { ticker.update(tg.next()); }
+
+        if (VERBOSE) System.out.println("\nFriday then Saturday, Total Seconds = " + seconds);
+        TimeSpecHelper timeSpecHelper = new TimeSpecHelper();
+        List<QuoteCompression> compressions = CompressUtil.list(ticker.chain());
+        for(QuoteCompression comp : compressions) {
+            QuoteCollector coll = (QuoteCollector)comp.listener();
+            TimeSpec spec = comp.getCompression();
+            long shouldbe = timeSpecHelper.secondsPerSpec(comp.getCompression(),seconds);
+            checkFeedResultsDays(ndays, spec, coll.quotes.size(), (int)shouldbe);
+        }
+    }
+
+    @Test
+    public void testGapOverWeekendFrames() {
+
+        TickGenerator tg1 = tickGeneratorForDate(2014,4,18,everySecond); // A Friday
+        TickGenerator tg2 = tickGeneratorForDate(2014,4,21,everySecond); // A Monday
+        Tick2Quotes ticker = new Tick2Quotes();
+
+        ticker
+                .feeds(new Compress2Minutes(1).connect(new QuoteCollector()))
+                .feeds(new Compress2Minutes(5).connect(new QuoteCollector()))
+                .feeds(new Compress2Minutes(15).connect(new QuoteCollector()))
+                .feeds(new Compress2Minutes(30).connect(new QuoteCollector()))
+                .feeds(new Compress2Hours(1).connect(new QuoteCollector()))
+                .feeds(new Compress2Days(1).connect(new QuoteCollector()));
+
+        int ndays = 2;
         long seconds = TimeSpecHelper.SecondsInDay + 1;
 
-        for(long i=0; i<seconds-2; i++) { ticker.update(tg.next()); }
+        for(long i=0; i<seconds-1; i++) { ticker.update(tg1.next()); }
+        for(long i=0; i<seconds; i++) { ticker.update(tg2.next()); }
 
-        Tick t = tg.next();
-        System.out.println("TICK = " + t);
-        ticker.update(t);
-        System.out.println("Snapshot = " + compressor.snapshot());
-
-        t = tg.next();
-        System.out.println("TICK = " + t);
-        ticker.update(t);
-        System.out.println("Snapshot = " + compressor.snapshot());
-
-        MutableDateTime dt = new MutableDateTime();
-        dt.setRep(compressor._nextDateTimeFrame);
-        System.out.println("Compressor Next DT = " + dt.toString());
-
-        System.out.println("1-Day    = " + days.quotes.size() + ", Expected = " + 1);
-
-
-        //System.out.println(days.quotes.get(days.quotes.size()-1));
-
-        //assertEquals("Expected 1 daily quotes for 1 day", days.quotes.size(), 1);
+        int totalseconds = ((int)seconds * 2 - 1);
+        if (VERBOSE) System.out.println("\nFriday then Monday Total Seconds = " + totalseconds);
+        TimeSpecHelper timeSpecHelper = new TimeSpecHelper();
+        List<QuoteCompression> compressions = CompressUtil.list(ticker.chain());
+        for(QuoteCompression comp : compressions) {
+            QuoteCollector coll = (QuoteCollector)comp.listener();
+            TimeSpec spec = comp.getCompression();
+            long shouldbe = timeSpecHelper.secondsPerSpec(comp.getCompression(),totalseconds);
+            checkFeedResultsDays(ndays, spec, coll.quotes.size(), (int)shouldbe);
+        }
     }
-    */
+
 
     // ----------------------------------------------------------------------
     // Test Fixtures
     // ----------------------------------------------------------------------
+
+
 
     public TickGenerator tickGeneratorForDate(int year, int month, int day, int everyNSeconds) {
         MutableDateTime tickDT = new MutableDateTime(year,month,day);
@@ -186,17 +224,13 @@ public class Test4Compression {
         return new TickGenerator(proto, dGen, tGen);
     }
 
-
-    public void printOrAssert(boolean whether, String msg, int valA, int valB) {
-        if (whether) assertEquals(msg,valA,valB);
-        else System.out.println(msg + " was " + valA + " expected " + valB);
+    public void checkFeedResultsDays(int ndays, TimeSpec spec, int valA, int valB) {
+        checkFeedResult("Total " + spec.toString() + " events in " + ndays + (ndays > 1 ? " days":" day"),valA,valB);
+    }
+    public void checkFeedResult(String msg, int valA, int valB) {
+        if (VERBOSE) System.out.println(msg + " was " + valA + " expected " + valB);
+        else assertEquals(msg,valA,valB);
     }
 
-/*
-    System.out.println("Total Quotes = " + collector.quotes.size());
-    for(Quote q : collector.quotes) {
-       System.out.println(q);
-    }
-*/
 
 }
