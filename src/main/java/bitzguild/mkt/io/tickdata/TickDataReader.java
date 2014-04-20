@@ -116,7 +116,8 @@ public class TickDataReader extends FileLineReader<Tick> implements TickSource {
 		_parser = new TDCsvLineParser(prototype);
 	}
 
-	public void open(TickObserver observer) throws TickSourceException {
+	public void
+    open(TickObserver observer) throws TickSourceException {
 		try {
 			_output = observer;
 			read(_fileName);

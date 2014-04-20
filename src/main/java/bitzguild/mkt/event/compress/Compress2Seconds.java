@@ -31,8 +31,6 @@
 
 package bitzguild.mkt.event.compress;
 
-import bitzguild.mkt.event.MutableQuote;
-import bitzguild.mkt.event.Quote;
 import bitzguild.ts.datetime.MutableDateTime;
 import bitzguild.ts.event.TimeSpec;
 import bitzguild.ts.event.TimeUnits;
@@ -61,11 +59,11 @@ public class Compress2Seconds extends Compress2Time {
 	// ------------------------------------------
 
 	public Compress2Seconds() {
-		super(new TimeSpec(TimeUnits.SECONDS, COMPRESSION_30));
+		super(new TimeSpec(TimeUnits.SECOND, COMPRESSION_30));
 	}
 
 	public Compress2Seconds(int increment) {
-		super(new TimeSpec(TimeUnits.SECONDS, increment));
+		super(new TimeSpec(TimeUnits.SECOND, increment));
 	}
 
 	// ------------------------------------------
@@ -82,56 +80,6 @@ public class Compress2Seconds extends Compress2Time {
 	// QuoteChain interface
 	// ------------------------------------------
 
-
-    /**
-     * Take sub-minute update information and break it into
-     * N-second chunks. Because quiet markets or fine-grained
-     * time bars may not get updates during a given period of
-     * time, this method must generate pseudo updates for the
-     * 'missing' data. The generated Quote will have all prices
-     * equal to prior close and a volume of zero.
-     * @param inquote
-     */
-    public void update(Quote inquote) {
-
-        if (inquote.datetimeRep() >= _nextDateTime) {
-
-            // Change up
-            if (_quoteCompressed != null) {
-                _output.update(_quoteCompressed);
-                //_compressionListener.innerUpdate(symbol, _quoteCompressed);
-
-                _datetimeIncr.setRep(inquote.datetimeRep());
-            } else {
-                _quoteCompressed = new MutableQuote( _compressionSpec,inquote.symbol());
-                _datetimeIncr = new MutableDateTime(inquote.datetime());
-            }
-
-            // 1st time only stuff
-            _quoteCompressed.setOpen(inquote.open());
-            _datetimeTmp.setRep(inquote.datetimeRep());
-            alignTime(_datetimeTmp);
-
-            _quoteCompressed.setDateTimeRep(_datetimeTmp.rep());
-
-            // recurring updates
-			_quoteCompressed.setLow(inquote.low());
-			_quoteCompressed.setHigh(inquote.high());
-			_quoteCompressed.setClose(inquote.close());
-			_quoteCompressed.setVolume(inquote.volume());
-
-            incrementToNextPeriod(_datetimeIncr);
-            _nextDateTime = _datetimeIncr.rep();
-
-        } else {
-            // recurring updates
-			_quoteCompressed.setHigh(Math.max(inquote.high(), _quoteCompressed.high()));
-			_quoteCompressed.setLow(Math.min(inquote.low(), _quoteCompressed.low()));
-			_quoteCompressed.setClose(inquote.close());
-			_quoteCompressed.setVolume(_quoteCompressed.volume() + inquote.volume());
-        }
-    }
-
     // ------------------------------------------
     // Compress2Time utilities
     // ------------------------------------------
@@ -143,6 +91,10 @@ public class Compress2Seconds extends Compress2Time {
 
 		dt.addSeconds(next);
 	}
+
+    protected void alignTime(MutableDateTime dt) {
+        dt.setHoursMinutesSeconds(dt.hours(), dt.minutes(), dt.seconds() % _increment);
+    }
 
 }
 

@@ -34,6 +34,8 @@ package bitzguild.mkt.event.compress;
 import bitzguild.mkt.event.MutableQuote;
 import bitzguild.mkt.event.Quote;
 import bitzguild.mkt.event.QuoteChain;
+import bitzguild.mkt.event.QuoteListener;
+import bitzguild.ts.datetime.ImmutableDateTime;
 import bitzguild.ts.datetime.MutableDateTime;
 import bitzguild.ts.event.TimeSpec;
 import bitzguild.ts.event.TimeUnits;
@@ -63,16 +65,20 @@ import bitzguild.ts.event.TimeUnits;
 
 public class Compress2Time implements QuoteCompression {
 
-	protected QuoteChain        _output;
+    protected static long       ZERODAY = new MutableDateTime(1000,1,1).rep();
+	protected QuoteChain        _nextEventProcessor;
+    protected QuoteListener     _compressedEventListener;
+
 	protected TimeSpec 			_compressionSpec;
 	protected TimeSpec 			_incomingSpec;
 
 	protected MutableQuote      _quoteCompressed = null;
 	protected int               _increment = 1;
 
-	protected MutableDateTime          _datetimeIncr;
-	protected MutableDateTime          _datetimeTmp;
-	protected long               _nextDateTime;
+	protected MutableDateTime   _datetimeIncr;
+	protected MutableDateTime   _datetimeTmp;
+	protected long              _nextDateTimeFrame;
+    protected long              _nextFrameBoundary;
 
 
 	// ------------------------------------------
@@ -99,8 +105,10 @@ public class Compress2Time implements QuoteCompression {
         _increment = spec.length;
 
         _datetimeTmp = new MutableDateTime();
-        _nextDateTime = Long.MIN_VALUE;
-		_output = QuoteChain.TERMINAL;
+        _nextDateTimeFrame = ZERODAY;
+        _nextFrameBoundary = _nextDateTimeFrame;
+		_nextEventProcessor = QuoteChain.TERMINAL;
+        _compressedEventListener = QuoteListener.TERMINAL;
     }
 
 	// ------------------------------------------
@@ -119,6 +127,13 @@ public class Compress2Time implements QuoteCompression {
 
     protected void alignTime(MutableDateTime dt) {
         dt.setHoursMinutesSeconds(dt.hours(), dt.minutes(), 0);
+        System.out.println("ALIGNED: " + dt);
+    }
+
+    protected long alignFrameWithSpec(long inrep) {
+        _datetimeTmp.setRep(inrep);
+        alignTime(_datetimeTmp);
+        return _datetimeTmp.rep();
     }
 
     protected void incrementToNextPeriod(MutableDateTime dt) {
@@ -133,65 +148,101 @@ public class Compress2Time implements QuoteCompression {
     // QuoteChain interface
     // ------------------------------------------
 
+    public QuoteChain chain() { return _nextEventProcessor; }
+
     public QuoteChain feeds(QuoteChain other) {
-        _output = other;
+        _nextEventProcessor = other;
         return other;
     }
 
 
     public void update(Quote inquote) {
 
-		if (inquote.datetimeRep() >= _nextDateTime) {
+        if (inquote.datetimeRep() < _nextDateTimeFrame) {
+            _quoteCompressed.merge(inquote);    // add to existing
+        } else {                                // changing up
 
-			// Change up
+            long specAlignedIncomdingFrame = alignFrameWithSpec(inquote.datetimeRep());
+
 			if (_quoteCompressed != null) {
-				_output.update(_quoteCompressed);
-                //_compressionListener.innerUpdate(symbol, _quoteCompressed);
-
-				_datetimeIncr.setRep(inquote.datetimeRep());
+				_nextEventProcessor.update(_quoteCompressed);
+                _compressedEventListener.update(_quoteCompressed);
+				_datetimeIncr.setRep(specAlignedIncomdingFrame);
 			} else {
-				_quoteCompressed = new MutableQuote(_compressionSpec,inquote.symbol());
-				_datetimeIncr = new MutableDateTime(inquote.datetime());
+				_quoteCompressed = new MutableQuote(_compressionSpec, specAlignedIncomdingFrame,inquote.symbol(),
+                                inquote.open(), inquote.high(), inquote.low(), inquote.close(), inquote.volume());
+				_datetimeIncr = new MutableDateTime(specAlignedIncomdingFrame);
 			}
 
-			// 1st time only stuff
-			_quoteCompressed.setOpen(inquote.open());
-			_datetimeTmp.setRep(inquote.datetimeRep());
-            alignTime(_datetimeTmp);
+            if (specAlignedIncomdingFrame > _nextDateTimeFrame) {
+                fillGap(_nextDateTimeFrame, specAlignedIncomdingFrame, _quoteCompressed, inquote);
+            } else {
+                _quoteCompressed.with( specAlignedIncomdingFrame,
+                        inquote.open(), inquote.high(), inquote.low(), inquote.close(),
+                        inquote.volume());
+            }
 
-            _quoteCompressed.setDateTimeRep(_datetimeTmp.rep());
-
-			// recurring updates
-            _quoteCompressed.setLow(inquote.low());
-            _quoteCompressed.setHigh(inquote.high());
-            _quoteCompressed.setClose(inquote.close());
-            _quoteCompressed.setVolume(inquote.volume());
-            
-			incrementToNextPeriod(_datetimeIncr);
-			_nextDateTime = _datetimeIncr.rep();
-
-		} else {
-			// recurring updates
-            _quoteCompressed.setHigh(Math.max(inquote.high(), _quoteCompressed.high()));
-            _quoteCompressed.setLow(Math.min(inquote.low(), _quoteCompressed.low()));
-            _quoteCompressed.setClose(inquote.close());
-            _quoteCompressed.setVolume(_quoteCompressed.volume() + inquote.volume());
+            incrementToNextPeriod(_datetimeIncr);
+			_nextDateTimeFrame = _datetimeIncr.rep();
+            _nextEventProcessor.update(_quoteCompressed);
 		}
 	}
 
+
     /**
      * Convey any in-process data to downstream listener.
-     * @param inquote
      */
     public void close() {
-        _output.close();
-		_output = QuoteChain.TERMINAL;
+        _nextEventProcessor.close();
+		_nextEventProcessor = QuoteChain.TERMINAL;
+    }
+
+    public void fillGap(long firstDT, long finalDT, Quote compression, Quote inquote) {
+        if (firstDT == ZERODAY) return;
+
+        MutableDateTime dt = new MutableDateTime(firstDT);
+        MutableQuote mergeQuote = new MutableQuote(inquote);
+        mergeQuote.setDateTimeRep(finalDT);
+        _quoteCompressed.with( firstDT,compression.close(), compression.close(), compression.close(), compression.close(),0L);
+
+        long fillerDT = dt.rep();
+
+        int count = 0;
+        while(fillerDT < finalDT) {
+            _quoteCompressed.setDateTimeRep(fillerDT);
+            _compressedEventListener.update(_quoteCompressed);
+            incrementToNextPeriod(dt);
+            fillerDT = dt.rep();
+            count++;
+        }
+        _quoteCompressed.merge(mergeQuote);    // add to existing
+        _quoteCompressed.setDateTimeRep(finalDT);
+
+//        System.out.print("*** FILLED GAP *** ");
+//        System.out.println(new ImmutableDateTime(finalDT) + " > "
+//                        + new ImmutableDateTime(firstDT)
+//                        + " with " + count
+//                        + " " + _compressionSpec
+//                        + " quotes"
+//        );
     }
 
 
 	// ------------------------------------------
 	// QuoteCompression interface
 	// ------------------------------------------
+
+    public QuoteListener listener() { return _compressedEventListener; }
+
+    /**
+     * Assign listener
+     *
+     * @param listener for compressed events
+     */
+    public QuoteCompression connect(QuoteListener listener) {
+        _compressedEventListener = listener;
+        return this;
+    }
 
 	/**
 	 * Answers a copy of the TimeSpec for compression.
@@ -230,7 +281,7 @@ public class Compress2Time implements QuoteCompression {
 	}
 	
 	public QuoteChain getOutput() {
-		return _output;
+		return _nextEventProcessor;
 	}
 
 

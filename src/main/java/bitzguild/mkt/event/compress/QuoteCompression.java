@@ -33,6 +33,7 @@ package bitzguild.mkt.event.compress;
 
 import bitzguild.mkt.event.Quote;
 import bitzguild.mkt.event.QuoteChain;
+import bitzguild.mkt.event.QuoteListener;
 import bitzguild.ts.event.TimeSpec;
 
 /**
@@ -49,4 +50,6 @@ import bitzguild.ts.event.TimeSpec;
 public interface QuoteCompression extends QuoteChain {
 	public TimeSpec getCompression();
     public Quote snapshot();
+    public QuoteCompression connect(QuoteListener listener);
+    public QuoteListener listener();
 }

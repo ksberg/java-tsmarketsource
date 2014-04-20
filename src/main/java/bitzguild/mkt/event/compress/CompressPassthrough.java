@@ -34,6 +34,7 @@ package bitzguild.mkt.event.compress;
 import bitzguild.mkt.event.MutableQuote;
 import bitzguild.mkt.event.Quote;
 import bitzguild.mkt.event.QuoteChain;
+import bitzguild.mkt.event.QuoteListener;
 import bitzguild.ts.event.TimeSpec;
 
 /**
@@ -48,6 +49,8 @@ import bitzguild.ts.event.TimeSpec;
 public class CompressPassthrough implements QuoteCompression {
 
 	protected QuoteChain    _output;
+    protected QuoteListener _compressedEventListener;
+
 	protected TimeSpec 		_incomingSpec;
     protected MutableQuote  _quote;
 
@@ -60,6 +63,8 @@ public class CompressPassthrough implements QuoteCompression {
 	// ------------------------------------------
 	// QuoteChain interface
 	// ------------------------------------------
+
+    public QuoteChain chain() { return _output; }
 
     /**
      * Assign next in feeds. This characteristic
@@ -105,6 +110,19 @@ public class CompressPassthrough implements QuoteCompression {
 	// ------------------------------------------
 	// QuoteCompression interface
 	// ------------------------------------------
+
+    public QuoteListener listener() { return _compressedEventListener; }
+
+    /**
+     * Passthrough does not produce compressed events
+     * so listener will be ignored
+     *
+     * @param listener ignored
+     */
+    public QuoteCompression connect(QuoteListener listener) {
+        _compressedEventListener = listener;
+        return this;
+    }
 
 	/**
 	 * Answer intermediate accumulated Quote representation

@@ -31,9 +31,9 @@
 
 package bitzguild.mkt.io;
 
-import bitzguild.mkt.event.QuoteChain;
+import bitzguild.mkt.event.QuoteListener;
 
 public interface QuoteSource {
-	public QuoteChain open(QuoteChain chain) throws QuoteSourceException;
+	public QuoteListener open(QuoteListener chain) throws QuoteSourceException;
     public void close();
 }

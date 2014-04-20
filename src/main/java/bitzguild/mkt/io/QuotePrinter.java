@@ -35,8 +35,9 @@ import java.io.PrintStream;
 
 import bitzguild.mkt.event.Quote;
 import bitzguild.mkt.event.QuoteChain;
+import bitzguild.mkt.event.QuoteListener;
 
-public class QuotePrinter implements QuoteChain {
+public class QuotePrinter implements QuoteListener {
 
 	protected PrintStream _ps;
 	
@@ -44,7 +45,6 @@ public class QuotePrinter implements QuoteChain {
 	public QuotePrinter(PrintStream ps) { _ps = ps;}
 	
 	public void update(Quote q) {	_ps.println(q.toString()); }
-	public QuoteChain feeds(QuoteChain other) { return null; }
 	public void close() {}
 
 }

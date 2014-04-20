@@ -91,8 +91,9 @@ public class TimeRangeFilter implements QuoteChain {
 		_lowerBound = lower;
 		_upperBound = upper;
 	}
-	
-	
+
+    public QuoteChain chain() { return _output; }
+
 	/* (non-Javadoc)
 	 * @see psc.mkt.data.QuoteChain#feeds(psc.mkt.data.QuoteChain)
 	 */

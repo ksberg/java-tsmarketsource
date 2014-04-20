@@ -31,10 +31,14 @@
 
 package bitzguild.mkt.io.tickdata;
 
+import bitzguild.ts.datetime.DateTime;
 import bitzguild.ts.datetime.MutableDateTime;
 
 import java.io.*;
 import java.text.ParseException;
+
+// TODO: more control over output (?)
+// TODO: DateTime format without zeros (e.g. 20140102 vs. 20140102.000000000) as file names
 
 public class TickData {
     public static final String EXT = ".csv";
@@ -99,21 +103,28 @@ public class TickData {
         return strb;
     }
 
-    public StringBuffer pathForData(StringBuffer strb, String symbol, MutableDateTime dt) {
+    public StringBuffer pathForData(StringBuffer strb, String symbol, DateTime dt) {
         pathForContinuous(strb).append("/").append(symbol).append("/").append(dt.year());
         return strb;
     }
 
-    public StringBuffer fileForData(StringBuffer strb, String symbol, MutableDateTime dt) {
+    public StringBuffer fileForData(StringBuffer strb, String symbol, DateTime dt) {
 
         return strb;
     }
 
-    public StringBuffer appendFileName(StringBuffer strb, String symbol, MutableDateTime dt) {
+    public StringBuffer appendFileName(StringBuffer strb, String symbol, DateTime dt) {
         strb.append("/").append(dt.toString()).append(EXT);
         return strb;
     }
 
+    /**
+     * Takes one large tick file and partitions it into daily
+     * files organized by symbol and year.
+     *
+     * @param csvFile input file
+     * @param symbol market symbol
+     */
     public void partitionBuffered(String csvFile, String symbol) {
         StringBuffer strb = new StringBuffer();
         StringBuffer strbFile = new StringBuffer();
@@ -154,7 +165,7 @@ public class TickData {
     }
 
 	private void writeOneTickFile(String symbol, StringBuffer strb,
-			String header, String newDateStr) throws FileNotFoundException, ParseException, IOException {
+			String header, String newDateStr) throws ParseException, IOException {
 		
 		StringBuffer strbFile = new StringBuffer();
 		FileOutputStream fos;
@@ -201,7 +212,7 @@ public class TickData {
                         out.flush();
                         out.close();
                     }
-                    MutableDateTime dt = MutableDateTime.parse(newDateStr);
+                    DateTime dt = MutableDateTime.parse(newDateStr);
                     this.pathForData(strb,symbol,dt);
                     String directory =  strb.toString();
                     this.ensurePath(directory);

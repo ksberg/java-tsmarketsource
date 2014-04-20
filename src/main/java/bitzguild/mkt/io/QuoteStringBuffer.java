@@ -33,8 +33,9 @@ package bitzguild.mkt.io;
 
 import bitzguild.mkt.event.Quote;
 import bitzguild.mkt.event.QuoteChain;
+import bitzguild.mkt.event.QuoteListener;
 
-public class QuoteStringBuffer implements QuoteChain {
+public class QuoteStringBuffer implements QuoteListener {
 
 	protected StringBuffer 	_buffer;
 	protected QuoteChain	_output;
@@ -51,11 +52,7 @@ public class QuoteStringBuffer implements QuoteChain {
 
 	public void update(Quote q) {
 		q.toBuffer(_buffer).append("\n");
-	}
-
-	public QuoteChain feeds(QuoteChain other) {
-		_output = other;
-		return other;
+        _output.update(q);
 	}
 
 	public void close() {}

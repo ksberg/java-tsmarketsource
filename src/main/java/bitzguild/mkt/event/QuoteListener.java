@@ -43,4 +43,15 @@ public interface QuoteListener extends Updater<Quote> {
 	 * @param q
 	 */
 	public void update(Quote q);
+
+
+    /**
+     * Answer terminating QuoteListener. Use as a safe "Null" value.
+     *
+     * @return QuoteChain
+     */
+    public static final QuoteListener TERMINAL = new QuoteListener() {
+        public void update(Quote q) { }
+    };
+
 }

@@ -34,6 +34,7 @@ package bitzguild.mkt.event.compress;
 import bitzguild.mkt.event.MutableQuote;
 import bitzguild.mkt.event.Quote;
 import bitzguild.mkt.event.QuoteChain;
+import bitzguild.mkt.event.QuoteListener;
 import bitzguild.ts.event.TimeSpec;
 
 
@@ -55,8 +56,10 @@ import bitzguild.ts.event.TimeSpec;
 public class Compress2NX implements QuoteCompression {
 
 	protected QuoteChain        _output;
-	protected TimeSpec _compressionSpec;
-	protected TimeSpec _incomingSpec;
+    protected QuoteListener     _compressedEventListener;
+
+	protected TimeSpec          _compressionSpec;
+	protected TimeSpec          _incomingSpec;
 
 	protected MutableQuote      _quoteCompressed = null;
 
@@ -84,6 +87,7 @@ public class Compress2NX implements QuoteCompression {
         _compressionSpec = new TimeSpec();
         _compressionSpec.length = _compression;
 		_output = QuoteChain.TERMINAL;
+        _compressedEventListener = QuoteListener.TERMINAL;
     }
 
 	// ------------------------------------------
@@ -132,13 +136,13 @@ public class Compress2NX implements QuoteCompression {
 
 		if (_incount % _compression == 0) {
             _output.update(_quoteCompressed);
+            _compressedEventListener.update(_quoteCompressed);
         }
 		_incount = (_incount+1) % _compression;
 	}
 
     /**
-     * Convey any in-process data to downstream listener.
-     * @param inquote
+     * Terminate the processing chain
      */
     public void close() {
         _output.close();
@@ -149,6 +153,18 @@ public class Compress2NX implements QuoteCompression {
 	// ------------------------------------------
 	// QuoteCompression interface
 	// ------------------------------------------
+
+    public QuoteListener listener() { return _compressedEventListener; }
+
+    /**
+     * Assign listener
+     *
+     * @param listener for compressed events
+     */
+    public QuoteCompression connect(QuoteListener listener) {
+        _compressedEventListener = listener;
+        return this;
+    }
 
 	/**
 	 * Answers a copy of the TimeSpec for compression.
@@ -187,6 +203,8 @@ public class Compress2NX implements QuoteCompression {
 	public QuoteChain getOutput() {
 		return _output;
 	}
+
+    public QuoteChain chain() { return _output; }
 
 	public QuoteChain feeds(QuoteChain o) {
 		_output = o;

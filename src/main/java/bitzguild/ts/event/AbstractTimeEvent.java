@@ -40,12 +40,14 @@ public class AbstractTimeEvent extends BufferUtils implements BinnedTimeEvent {
     protected long  _spec;
     protected long  _time;
 
+    protected static long _ScratchTimeRep = ImmutableDateTime.now().rep();
+
     /**
      * Default Constructor
      */
     protected AbstractTimeEvent() {
         _spec = (new TimeSpec()).rep();
-        _time = 0L;
+        _time = _ScratchTimeRep;
     }
 
     /**

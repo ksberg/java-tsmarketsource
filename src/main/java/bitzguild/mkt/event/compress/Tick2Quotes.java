@@ -43,8 +43,12 @@ public class Tick2Quotes implements TickObserver {
     public QuoteCompression _quoteCompression;
     public MutableQuote _quote;
 
+    public Tick2Quotes() {
+        _quoteCompression = new CompressPassthrough();
+        _quote = null;
+    }
+
     public Tick2Quotes(QuoteCompression quoteCompression) {
-        super();
         _quoteCompression = quoteCompression;
         _quote = null;
     }
@@ -55,6 +59,8 @@ public class Tick2Quotes implements TickObserver {
         _quoteCompression.feeds(qo);
         return qo;
     }
+
+    public QuoteChain chain() { return _quoteCompression; }
 
     @Override
     public void update(Tick tick) {

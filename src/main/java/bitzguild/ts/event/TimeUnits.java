@@ -45,7 +45,7 @@ public class TimeUnits {
 
 	// constant time units
 	public static final int MIN_TIME    = MAX_VAR+1;
-    public static final int SECONDS	    = MIN_TIME;
+    public static final int SECOND      = MIN_TIME;
     public static final int MINUTE	    = MIN_TIME+1;
 	public static final int HOUR 		= MIN_TIME+2;
 	public static final int DAY 		= MIN_TIME+3;

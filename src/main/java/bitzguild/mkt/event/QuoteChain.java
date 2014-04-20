@@ -31,6 +31,8 @@
 
 package bitzguild.mkt.event;
 
+import java.util.ArrayList;
+
 /**
  * QuoteChain strings together any number of QuoteListeners in to form
  * a sequence where the each member of the chain may modify the result
@@ -54,6 +56,8 @@ public interface QuoteChain extends QuoteListener {
      */
     public QuoteChain feeds(QuoteChain other);
 
+    public QuoteChain chain();
+
     /**
      * All upstream processing has completed.
      * Enable downstream observers to complete
@@ -68,11 +72,14 @@ public interface QuoteChain extends QuoteListener {
     /**
      * Answer terminating QuoteChain. Use as a safe "Null" value.
      * 
-     * @return QuoteChain
+     * @return last element in chain
      */
     public static final QuoteChain TERMINAL = new QuoteChain() {
         public QuoteChain feeds(QuoteChain other) { return null; }
+        public QuoteChain chain() { return null; }
         public void update(Quote q) { }
         public void close() {}
     };
+
+
 }

@@ -31,6 +31,7 @@
 
 package bitzguild.mkt.io.yahoo;
 
+import java.io.IOException;
 import java.net.MalformedURLException;
 import java.net.URL;
 import java.text.ParseException;
@@ -39,8 +40,10 @@ import java.util.StringTokenizer;
 
 import bitzguild.io.LineReader;
 import bitzguild.io.Updater;
+import bitzguild.io.Url2File;
 import bitzguild.io.UrlLineReader;
 
+import bitzguild.mkt.event.QuoteListener;
 import bitzguild.ts.datetime.DateTime;
 import bitzguild.ts.datetime.MutableDateTime;
 import bitzguild.ts.event.TimeSpec;
@@ -151,12 +154,24 @@ public class YahooFinance extends UrlLineReader<Quote> implements QuoteSource {
 	protected YahooFinance() {
 		// blocked
 	}
-	
+
+
+    /**
+     * Symbol Constructor. Specify the market symbol to load from YahooFinance.
+     *
+     * @param symbol String market symbol
+     */
 	public YahooFinance(String symbol) {
 		MutableDateTime to = this.generateLastDate(); 
 		commonYahooFinanceInit(new ImmutableQuote(new TimeSpec(), symbol), generateBackSpan(to),to);
 	}
 
+    /**
+     * Prototype Constructor. The prototype will contain needed symbol for loading.
+     * Use this constructor when to control mutable vs. immutable update behavior.
+     *
+     * @param prototype Quote
+     */
 	public YahooFinance(Quote prototype) {
 		MutableDateTime to = this.generateLastDate(); 
 		commonYahooFinanceInit(prototype, generateBackSpan(to),to);
@@ -182,7 +197,7 @@ public class YahooFinance extends UrlLineReader<Quote> implements QuoteSource {
 	// QuoteFeed Interface
 	// ------------------------------------------------------------------------------------
 	
-    public QuoteChain open(QuoteChain chain) throws QuoteSourceException {
+    public QuoteListener open(QuoteListener chain) throws QuoteSourceException {
     	try {
     		QuoteBuffer buffer = new QuoteBuffer();
     		_output = buffer;
@@ -292,12 +307,27 @@ public class YahooFinance extends UrlLineReader<Quote> implements QuoteSource {
 
         return urlBuff.toString();
     }
-    
+
+    /**
+     *
+     * @param args command line: SYMBOL [FILE]
+     */
     public static void main(String[] args) {
+        String symbol = args.length > 0 ? args[0] : "AAPL";
+        String fileName = args.length > 1 ? args[1] : "symbol_out.csv";
+        YahooFinance yahoo = new YahooFinance(symbol);
     	try {
-        	(new YahooFinance(args[0])).open(new QuotePrinter());
-    	} catch (QuoteSourceException e) {
-    		e.printStackTrace();
-    	}
+            Url2File u2f = new Url2File(yahoo.url(),fileName);
+            u2f.read();
+        	yahoo.open(new QuotePrinter());
+    	} catch (QuoteSourceException qse) {
+            System.out.println("Quote processing exception: " + qse.getMessage());
+    	} catch (MalformedURLException me) {
+            System.out.println("Malformed URL: " + yahoo.urlString());
+        } catch (IOException ioe) {
+            System.out.println("File I/O Problem: " + fileName);
+        } finally {
+            yahoo.close();
+        }
     }
 }

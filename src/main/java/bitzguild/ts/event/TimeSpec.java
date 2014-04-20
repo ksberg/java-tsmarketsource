@@ -155,11 +155,12 @@ public class TimeSpec implements Cloneable, java.io.Serializable, Comparable<Tim
 
     public int units()	{ return this.units; }
     public int length() { return this.length; }
-    public long rep() 	{ return (long)(length << 8) | units; }
+    public long rep() 	{ return (long)(units << 16) | length; }
+    public long rank()  { return rep(); }
 
     private void _setRep(long rep) {
-        length = (int)(rep >> 8);
-        units = (int)(rep & 0xFF);
+        units = (int)(rep >> 16);
+        length = (int)(rep & 0xFFFF);
     }
 	
 
@@ -167,7 +168,53 @@ public class TimeSpec implements Cloneable, java.io.Serializable, Comparable<Tim
 	// Query
 	// ------------------------------------------------------
 
-    
+    public boolean framedBy(TimeSpec that) {
+        return this.rank() >= that.rank() && frameLowerIntoUpper(that, this);
+    }
+
+    public boolean frames(TimeSpec that) {
+        //System.out.println("RANK " + this.rank() + " vs " + that.rank());
+        return this.rank() <= that.rank() && frameLowerIntoUpper(this,that);
+    }
+
+    /**
+     * Answer whether the lower ranking TimeSpec can fit as a time multiple into the
+     * upper ranking TimeSpec.
+     *
+     * @param lower TimeSpec
+     * @param upper TimeSpec
+     * @return boolean whether
+     */
+    protected static boolean frameLowerIntoUpper(TimeSpec lower, TimeSpec upper) {
+        if (lower.units == TimeUnits.TICK) return true;     // TICK frames everything
+        if (lower.units == TimeUnits.WEEK) return false;    // WEEK is oddball, frames nothing
+        if (lower.units <= TimeUnits.DAY) {
+            if (upper.units <= TimeUnits.WEEK) {
+                long lowerSeconds = secondsPerSpec(lower);
+                long upperSeconds = secondsPerSpec(upper);
+                //System.out.print("Frame Test: " + lower+ " vs " + upper);
+                //System.out.print(" -> " + lowerSeconds + " % " + upperSeconds);
+                //System.out.println(" = " + (upperSeconds % lowerSeconds));
+                return (upperSeconds % lowerSeconds) == 0
+                        && withinUnitBounds(lower) && withinUnitBounds(upper);
+            }
+            return true;
+        }
+
+        if (lower.units >= TimeUnits.MONTH) {
+            int lowerMonths = monthsPerSpec(lower);
+            int upperMonths = monthsPerSpec(upper);
+            //System.out.print("Frame Test: " + lower+ " vs " + upper);
+            //System.out.print(" -> " + lowerMonths + " % " + upperMonths);
+            //System.out.println(" = " + (lowerMonths % upperMonths));
+           return (upperMonths % lowerMonths) == 0
+                    && withinUnitBounds(lower) && withinUnitBounds(upper);
+        }
+
+        //System.out.print("Not Testing This Yet ... ");
+        return false;
+    }
+
 	/**
 	* @param qs TimeSpec comparison object
 	* @return boolean whether quote objects can be used together
@@ -234,5 +281,93 @@ public class TimeSpec implements Cloneable, java.io.Serializable, Comparable<Tim
     private static int boundUnits(int units) {
         return Math.min(Math.max(units,TimeUnits.MIN_UNITS),TimeUnits.MAX_UNITS);
     }
-    
+
+
+    static long MinutesPerHour = 60;
+    static long SecondsPerMinute = 60;
+    static long HoursPerDay = 24;
+    static long DaysPerWeek = 7;
+
+    static long SecondsInMinute = 60;
+    static long SecondsInHour   = SecondsInMinute * MinutesPerHour;
+    static long SecondsInDay    = SecondsInHour * HoursPerDay;
+    static long SecondsInWeek   = SecondsInDay * DaysPerWeek;
+
+    public static long secondsPerSpec(TimeSpec ts) {
+        switch(ts.units) {
+            case TimeUnits.SECOND:
+                return ts.length;
+
+            case TimeUnits.MINUTE:
+                return (ts.length * SecondsPerMinute);
+
+            case TimeUnits.HOUR:
+                return (ts.length * SecondsInHour);
+
+            case TimeUnits.DAY:
+                return (ts.length * SecondsInDay);
+
+            case TimeUnits.WEEK:
+                return (ts.length * SecondsInWeek);
+
+            default:
+        }
+        return 1;
+    }
+
+    public static int monthsPerSpec(TimeSpec ts) {
+        switch (ts.units) {
+            case TimeUnits.MONTH:
+                return ts.length;
+            case TimeUnits.QUARTER:
+                return ts.length * 3;
+            case TimeUnits.YEAR:
+                return ts.length * 12;
+            case TimeUnits.DECADE:
+                return ts.length * 12 * 10;
+            case TimeUnits.CENTURY:
+                return ts.length * 12 * 10 * 10;
+            default:
+        }
+        return 1;
+    }
+
+    public static boolean withinUnitBounds(TimeSpec ts) {
+        switch(ts.units) {
+
+            case TimeUnits.SECOND:
+                return ts.length < 60;
+
+            case TimeUnits.MINUTE:
+                return ts.length < 60;
+
+            case TimeUnits.HOUR:
+                return ts.length < 24;
+
+            case TimeUnits.DAY:
+                return ts.length == 1;
+
+            case TimeUnits.WEEK:
+                return ts.length == 1;
+
+            case TimeUnits.MONTH:
+                return ts.length < 3;
+
+            case TimeUnits.QUARTER:
+                return ts.length < 3;
+
+            case TimeUnits.YEAR:
+                return ts.length <= 5;
+
+            case TimeUnits.DECADE:
+                return ts.length <= 5;
+
+            case TimeUnits.CENTURY:
+                return ts.length == 1;
+
+            default:
+        }
+        return true;
+    }
+
 }

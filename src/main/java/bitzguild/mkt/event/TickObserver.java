@@ -34,19 +34,25 @@ package bitzguild.mkt.event;
 import bitzguild.io.Updater;
 
 
+/**
+ * Upstream Tick update. Implementations should
+ * perform any "work" related to the given update
+ * and and relay message to next listener as appropriate.
+ * In the case of compression (re-binning), the
+ * downstream listener will receive a subset of
+ * messages corresponding to the new partition.
+ * IMPORTANT: The value Tick may be  mutable and
+ * consumer should make a copy if preserving state is desired.
+ */
 public interface TickObserver extends Updater<Tick> {
 
     /**
-     * Upstream Tick update. Implementations should
-     * perform any "work" related to the given update
-     * and and relay message to next listener as appropriate.
-     * In the case of compression (re-binning), the
-     * downstream listener will receive a subset of
-     * messages corresponding to the new partition.
-     * IMPORTANT: The value Tick is mutable and consumer should make a
-     * copy if preserving state is desired.
+     * Answer terminating QuoteListener. Use as a safe "Null" value.
      *
-     * @param tick the price/time event
+     * @return QuoteChain
      */
-	public void update(Tick tick);
+    public static final TickObserver TERMINAL = new TickObserver() {
+        public void update(Tick tick) { }
+    };
+
 }
