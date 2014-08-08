@@ -60,7 +60,7 @@ public class Compress2Days extends CompressDayOrGreater {
 		super();
 	}
 
-	public Compress2Days(int increment) {
+	public Compress2Days(long increment) {
 		super(increment);
 	}
 

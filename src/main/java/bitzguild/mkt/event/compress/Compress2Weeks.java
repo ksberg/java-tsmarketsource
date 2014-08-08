@@ -65,7 +65,7 @@ public class Compress2Weeks extends CompressDayOrGreater {
 		_compressionSpec.units = TimeUnits.WEEK;
 	}
 
-	public Compress2Weeks(int increment) {
+	public Compress2Weeks(long increment) {
 		super(increment);
 		_compressionSpec.units = TimeUnits.WEEK;
 	}

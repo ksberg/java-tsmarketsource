@@ -38,6 +38,13 @@ import bitzguild.mkt.event.QuoteListener;
 import bitzguild.ts.event.TimeSpec;
 
 
+// Renko (compress to block)
+// Mod-Renko (block w/tail)
+// Count (this)
+// Volume
+// Area (price x volume)
+// Volatility Squashed
+
 /**
  * <p>
  * Compresses multiple quotes into single quote. Final

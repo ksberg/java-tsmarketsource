@@ -50,10 +50,10 @@ import bitzguild.ts.event.TimeUnits;
 
 public class Compress2Seconds extends Compress2Time {
 
-	public static final int COMPRESSION_05  = 5;
-	public static final int COMPRESSION_10  = 10;
-	public static final int COMPRESSION_15  = 15;
-	public static final int COMPRESSION_30  = 30;
+	public static final long COMPRESSION_05  = 5;
+	public static final long COMPRESSION_10  = 10;
+	public static final long COMPRESSION_15  = 15;
+	public static final long COMPRESSION_30  = 30;
 
 	// ------------------------------------------
 	// Existence
@@ -63,7 +63,7 @@ public class Compress2Seconds extends Compress2Time {
 		super(new TimeSpec(TimeUnits.SECOND, COMPRESSION_30));
 	}
 
-	public Compress2Seconds(int increment) {
+	public Compress2Seconds(long increment) {
 		super(new TimeSpec(TimeUnits.SECOND, increment));
 	}
 
@@ -72,7 +72,7 @@ public class Compress2Seconds extends Compress2Time {
 	// ------------------------------------------
 
     @Override
-	public void setCompressionLength(int incr) {
+	public void setCompressionLength(long incr) {
 		_increment = Math.max(1, Math.min(incr, COMPRESSION_30));
 		_compressionSpec.length = _increment;
 	}
@@ -98,14 +98,15 @@ public class Compress2Seconds extends Compress2Time {
 
 	protected void incrementToNextPeriod(MutableDateTime dt) {
 		int seconds = dt.seconds();
-		int next = ((seconds-1) / _increment)*_increment + _increment - seconds;
+        long next = ((seconds-1) / _increment)*_increment + _increment - seconds;
 		next = (next == 0) ? _increment : next;
 
-		dt.addSeconds(next);
+		dt.addSeconds((int)next);
 	}
 
     protected void alignTime(MutableDateTime dt) {
-        dt.setHoursMinutesSeconds(dt.hours(), dt.minutes(), dt.seconds() % _increment);
+        int incr = (int)_increment;
+        dt.setHoursMinutesSeconds(dt.hours(), dt.minutes(), dt.seconds() % incr);
     }
 
 }

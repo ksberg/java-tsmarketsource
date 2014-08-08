@@ -41,7 +41,7 @@ public class TimeSpec implements Cloneable, java.io.Serializable, Comparable<Tim
 	static final long serialVersionUID = 0L;
 
 	public int units = TimeUnits.DAY;
-	public int length = 1;
+	public long length = 1;
 
 	// ------------------------------------------------------
 	// Existence
@@ -56,15 +56,16 @@ public class TimeSpec implements Cloneable, java.io.Serializable, Comparable<Tim
     }
 
     /**
-     * TimeSeriesSpec constructor with _units and _length
+     * TimeSeriesSpec constructor with units and length
      *
      * @param units Time Units
      * @param length cardinal unit multiplier (e.g. 5 * Minute)
      */
-    public TimeSpec(int units, int length) {
+    public TimeSpec(int units, long length) {
         this.units = boundUnits(units);
         this.length = length;
     }
+
 
     /**
      * Copy constructor.
@@ -145,22 +146,22 @@ public class TimeSpec implements Cloneable, java.io.Serializable, Comparable<Tim
 		return compareTo(ts) == 0;
 	}
 
-	public int hashCode() {
-		return (length << 5) + units;
-	}
+//	public int hashCode() {
+//		return (int)(length << 5) + units;
+//	}
 
 	// ------------------------------------------------------
 	// Accessors
 	// ------------------------------------------------------
 
     public int units()	{ return this.units; }
-    public int length() { return this.length; }
-    public long rep() 	{ return (long)(units << 16) | length; }
+    public long length() { return this.length; }
+    public long rep() 	{ return (((long)units) << 48) | length; }
     public long rank()  { return rep(); }
 
     private void _setRep(long rep) {
-        units = (int)(rep >> 16);
-        length = (int)(rep & 0xFFFF);
+        units = (int)(rep >> 48);
+        length = (int)(rep & 0xFFFFFFFFFFL);
     }
 	
 
@@ -186,8 +187,9 @@ public class TimeSpec implements Cloneable, java.io.Serializable, Comparable<Tim
      * @return boolean whether
      */
     protected static boolean frameLowerIntoUpper(TimeSpec lower, TimeSpec upper) {
-        if (lower.units == TimeUnits.TICK) return true;     // TICK frames everything
-        if (lower.units == TimeUnits.WEEK) return false;    // WEEK is oddball, frames nothing
+        if (lower.units >= TimeUnits.VARTIME_MIN) return false; // VARIABLE frames nothing
+        if (lower.units == TimeUnits.TICK) return true;         // TICK frames everything
+        if (lower.units == TimeUnits.WEEK) return false;        // WEEK is oddball, frames nothing
         if (lower.units <= TimeUnits.DAY) {
             if (upper.units <= TimeUnits.WEEK) {
                 long lowerSeconds = secondsPerSpec(lower);
@@ -264,8 +266,8 @@ public class TimeSpec implements Cloneable, java.io.Serializable, Comparable<Tim
         try {
             qs = new TimeSpec();
             String splits[] = qsString.split("-");
-            qs.length = Integer.parseInt(splits[0]);
-            qs.units = TimeUnits.unitsFromString(splits[1]);
+            qs.length = Long.parseLong(splits[0]);
+            qs.units = TimeUnits.unitsFromString(splits[1].trim());
         } catch (Exception e) {
             e.printStackTrace();
         }
@@ -318,15 +320,15 @@ public class TimeSpec implements Cloneable, java.io.Serializable, Comparable<Tim
     public static int monthsPerSpec(TimeSpec ts) {
         switch (ts.units) {
             case TimeUnits.MONTH:
-                return ts.length;
+                return (int)ts.length;
             case TimeUnits.QUARTER:
-                return ts.length * 3;
+                return (int)ts.length * 3;
             case TimeUnits.YEAR:
-                return ts.length * 12;
+                return (int)ts.length * 12;
             case TimeUnits.DECADE:
-                return ts.length * 12 * 10;
+                return (int)ts.length * 12 * 10;
             case TimeUnits.CENTURY:
-                return ts.length * 12 * 10 * 10;
+                return (int)ts.length * 12 * 10 * 10;
             default:
         }
         return 1;

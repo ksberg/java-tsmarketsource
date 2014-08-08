@@ -39,12 +39,12 @@ package bitzguild.ts.event;
 public class TimeUnits {
 
 	// variable time units
-	public static final int MIN_VAR = 0;
-	public static final int TICK    = MIN_VAR;
-	public static final int MAX_VAR = TICK;
+    public static final int EVENT_TIME_MIN  = 0;
+	public static final int TICK            = EVENT_TIME_MIN;
+    public static final int EVENT_TIME_MAX  = TICK;
 
 	// constant time units
-	public static final int MIN_TIME    = MAX_VAR+1;
+	public static final int MIN_TIME    = EVENT_TIME_MIN +1;
     public static final int SECOND      = MIN_TIME;
     public static final int MINUTE	    = MIN_TIME+1;
 	public static final int HOUR 		= MIN_TIME+2;
@@ -53,21 +53,33 @@ public class TimeUnits {
 	public static final int MONTH		= MIN_TIME+5;
 	public static final int QUARTER 	= MIN_TIME+6;
 	public static final int YEAR		= MIN_TIME+7;
-	public static final int DECADE			= MIN_TIME+8;
-	public static final int CENTURY			= MIN_TIME+9;
-	public static final int MAX_TIME    	= CENTURY;
+	public static final int DECADE		= MIN_TIME+8;
+	public static final int CENTURY		= MIN_TIME+9;
+	public static final int MAX_TIME    = CENTURY;
 
-	public static final int UNDEFINED   = 9;
 
-	public static final int MIN_UNITS   = MIN_VAR;
-	public static final int MAX_UNITS   = MAX_TIME;
+
+    public static final int VARTIME_MIN = MAX_TIME + 1;
+
+    public static final int RENKO       = VARTIME_MIN;
+    public static final int VOLUME      = VARTIME_MIN + 1;
+    public static final int AREA        = VARTIME_MIN + 2;
+    public static final int CUSTOM      = VARTIME_MIN + 3;
+    public static final int VARTIME_MAX = CUSTOM;
+
+
+    public static final int MIN_UNITS   = EVENT_TIME_MIN;
+	public static final int MAX_UNITS   = VARTIME_MAX;
 	public static final int NUM_UNITS   = MAX_UNITS + 1;
+
+    public static final int UNDEFINED   = NUM_UNITS;
 
 	private static final String[] UnitLabels = {
 							"tick", 
                             "second", "minute", "hour", 
                             "day", "week", "month", "quarter", 
                             "year", "decade", "century",
+                            "renko","volume", "area", "custom",
 							"***UNKNOWN***" };
 
 	private static final String[] ShortUnitLabels = {
@@ -75,6 +87,7 @@ public class TimeUnits {
 							"sec", "min", "hr", 
 							"day", "wk", "mo", "qtr", 
 							"yr","dec", "c",
+                            "rnko","vol", "area", "cust",
 							"***UNKNOWN***" };
 
 	private static final String[] UnitAdjectives = {
@@ -82,6 +95,7 @@ public class TimeUnits {
 							"by second","by minute", "hourly", 
 							"daily", "weekly", "monthly", "quarterly", 
 							"yearly","by decade","by century",
+                            "by renko","by volume", "by area", "as custom",
 							"***UNKNOWN***" };
 
 	/**
@@ -139,8 +153,10 @@ public class TimeUnits {
 		return Math.min(boundUnits(unitA), boundUnits(unitB));
 	}
 
+    public static boolean isEventUnit(int unit) { return unit <= EVENT_TIME_MAX; }
+
 	public static boolean isVariableUnit(int unit) {
-		return (unit >= MIN_VAR && unit <= MAX_VAR);
+		return (unit >= EVENT_TIME_MIN && unit <= EVENT_TIME_MAX);
 	}
 
 	public static boolean isTickUnit(int unit)      { return unit == TICK; }

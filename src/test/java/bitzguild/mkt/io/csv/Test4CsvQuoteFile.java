@@ -1,4 +1,4 @@
-package bitzguild.io;
+package bitzguild.mkt.io.csv;
 
 import bitzguild.mkt.event.Quote;
 import bitzguild.mkt.io.QuoteCollector;
@@ -9,7 +9,9 @@ import org.junit.Before;
 import org.junit.Ignore;
 import org.junit.Test;
 
-public class Test4YahooFinance {
+import java.io.File;
+
+public class Test4CsvQuoteFile {
 
     @Before
     public void setUp() {
@@ -19,7 +21,6 @@ public class Test4YahooFinance {
     public void tearDown() {
     }
 
-    // revise this to mock URL
 
     @Ignore
     public void testIt() {
@@ -35,5 +36,29 @@ public class Test4YahooFinance {
         }
 
 
+    }
+
+    @Test
+    public void testEnvironment() {
+        try {
+            CsvQuoteFile cqf = new CsvQuoteFile(getSamplePath() + "/ESR1.csv","ES");
+            QuoteCollector collector = new QuoteCollector();
+            cqf.open(collector);
+            for(Quote q : collector.quotes) System.out.println(q);
+        } catch(Throwable t) {
+            t.printStackTrace();
+        }
+
+    }
+
+    public String getSamplePath() {
+        String path = "";
+        try {
+            File f = new File(".");
+            path = f.getCanonicalPath() + "/samples/mkt/csv";
+        } catch(Throwable t) {
+            t.printStackTrace();
+        }
+        return path;
     }
 }

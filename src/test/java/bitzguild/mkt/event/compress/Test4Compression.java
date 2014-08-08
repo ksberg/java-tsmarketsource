@@ -1,17 +1,21 @@
 package bitzguild.mkt.event.compress;
 
 import bitzguild.mkt.event.*;
+import bitzguild.mkt.event.gen.QuoteGenerator;
 import bitzguild.mkt.event.gen.TickGenerator;
 import bitzguild.ts.datetime.DateTimeIterator;
 import bitzguild.ts.datetime.MutableDateTime;
 import bitzguild.ts.event.TimeSpec;
+import bitzguild.ts.event.TimeUnits;
 import bitzguild.ts.event.gen.DoubleGenerator;
 import bitzguild.mkt.io.QuoteCollector;
 
+import junit.framework.Assert;
 import org.junit.After;
 import org.junit.Before;
 import org.junit.Test;
 
+import java.util.ArrayList;
 import java.util.List;
 
 import static junit.framework.Assert.assertTrue;
@@ -19,6 +23,15 @@ import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertThat;
 
 public class Test4Compression {
+
+    public class QuoteCollector implements QuoteListener {
+        public ArrayList<Quote> quotes = new ArrayList<>();
+        public QuoteCollector() {}
+        @Override
+        public void update(Quote q) {
+            quotes.add(new ImmutableQuote(q));
+        }
+    }
 
     public static boolean VERBOSE = false;
 
@@ -206,6 +219,59 @@ public class Test4Compression {
             long shouldbe = timeSpecHelper.secondsPerSpec(comp.getCompression(),totalseconds);
             checkFeedResultsDays(ndays, spec, coll.quotes.size(), (int)shouldbe);
         }
+    }
+
+
+    @Test
+    public void testDay2DayCompression() {
+        Compress2Days toDays = new Compress2Days(1);
+        MutableDateTime dt = new MutableDateTime(2001,1,1);
+        MutableQuote quote = new MutableQuote(new TimeSpec(TimeUnits.DAY, 1),"SYM");
+        dt.setMillisSinceMidnight(0);
+        DateTimeIterator timeGen = new DateTimeIterator(dt, DateTimeIterator.days(1));
+        DoubleGenerator doubleGen = DoubleGenerator.curve(20, 100.0, 200.0);
+        QuoteGenerator quoteGen = new QuoteGenerator(quote, doubleGen, timeGen);
+
+        QuoteCollector collect = new QuoteCollector();
+        toDays.connect(collect);
+
+        int nquotes = 100;
+        Quote lastQuote = quote;
+        for(int i = 0; i<nquotes; i++) {
+            lastQuote = quoteGen.next();
+            toDays.update(lastQuote);
+        }
+        Quote snapshot = toDays.snapshot();
+
+        System.out.println("Collected = " + collect.quotes.size());
+        System.out.println(snapshot);
+        System.out.println(lastQuote);
+
+        assertEquals("Collected Size", collect.quotes.size(), nquotes - 1);
+        assertEquals("Snapshot.datetime", snapshot.datetimeRep(), lastQuote.datetimeRep());
+        assertEquals("Snapshot.open", snapshot.open(), lastQuote.open(),0.0);
+        assertEquals("Snapshot.high", snapshot.high(), lastQuote.high(),0.0);
+        assertEquals("Snapshot.low", snapshot.low(), lastQuote.low(),0.0);
+        assertEquals("Snapshot.close", snapshot.close(), lastQuote.close(),0.0);
+        assertEquals("Snapshot.volume", snapshot.volume(), lastQuote.volume(),0.0);
+
+    }
+
+    @Test
+    public void testRenko() {
+
+        Compress2Renko renko = new Compress2Renko(12.0);
+
+        TickGenerator tg1 = tickGeneratorForDate(2014,4,18,everySecond); // A Friday
+        Tick2Quotes ticker = new Tick2Quotes();
+
+        ticker.feeds(new Compress2Renko(12.0).connect(new QuoteCollector()));
+
+        int ndays = 2;
+        long seconds = TimeSpecHelper.SecondsInDay + 1;
+        for(long i=0; i<seconds-1; i++) { ticker.update(tg1.next()); }
+
+
     }
 
 

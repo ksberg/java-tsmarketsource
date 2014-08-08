@@ -31,18 +31,17 @@
 
 package bitzguild.mkt.io.yahoo;
 
+import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.net.MalformedURLException;
+import java.net.SocketException;
 import java.net.URL;
 import java.text.ParseException;
-import java.util.ArrayList;
-import java.util.StringTokenizer;
 
-import bitzguild.io.LineReader;
-import bitzguild.io.Updater;
 import bitzguild.io.Url2File;
 import bitzguild.io.UrlLineReader;
 
+import bitzguild.mkt.io.*;
 import bitzguild.mkt.event.QuoteListener;
 import bitzguild.ts.datetime.DateTime;
 import bitzguild.ts.datetime.MutableDateTime;
@@ -51,10 +50,6 @@ import bitzguild.ts.event.TimeUnits;
 
 import bitzguild.mkt.event.ImmutableQuote;
 import bitzguild.mkt.event.Quote;
-import bitzguild.mkt.event.QuoteChain;
-import bitzguild.mkt.io.QuotePrinter;
-import bitzguild.mkt.io.QuoteSource;
-import bitzguild.mkt.io.QuoteSourceException;
 
 /**
  * This class parses CSV format table data from Yahoo Finance web services.
@@ -63,84 +58,9 @@ import bitzguild.mkt.io.QuoteSourceException;
  * 
  * @author Kevin Sven Berg
  */
-public class YahooFinance extends UrlLineReader<Quote> implements QuoteSource {
+public class YahooNet extends UrlLineReader<Quote> implements QuoteSource {
 
 	public static int YearsBack = 50;
-	
-	/**
-	 * Yahoo CSV lines are streamed in date descending order.
-	 * This buffer captures Quotes and reverses the replay to
-	 * output receiver.
-	 * 
-	 * @author Kevin Sven Berg
-	 *
-	 */
-	public class QuoteBuffer implements Updater<Quote> {
-		ArrayList<Quote>	_buffer;
-		Updater<Quote>		_output;
-		public QuoteBuffer() {
-			_buffer = new ArrayList<Quote>();
-		}
-		public void update(Quote value) {
-			_buffer.add(new ImmutableQuote(value));
-		}
-		public void reverse(Updater<Quote> output) {
-			int size = _buffer.size();
-			for (int i=size-1; i>=0; i--) output.update(_buffer.get(i));
-		}
-	}
-	
-	/**
-	 * 
-	 */
-	public class YahooCsvLineParser implements LineReader<Quote> {
-		protected Quote 			_prototype;
-	    protected MutableDateTime 	_tmpDateTime;
-		public YahooCsvLineParser(Quote prototype) {
-			_prototype = prototype;
-	        _tmpDateTime = new MutableDateTime();
-		}
-		@Override
-		public Quote read(String line) throws ParseException {
-
-	        StringTokenizer st = new StringTokenizer(line, ",");
-	        if (st.countTokens() > 5) {
-	            // LINE: 'Date,Open,High,Low,Close,Volume, Adj Close
-	            parseYYYYMMDDWithSep(_tmpDateTime,st.nextToken(),"-");
-	            long datetime = _tmpDateTime.rep();
-	        	double open = Double.parseDouble(st.nextToken());
-	        	double high	= Double.parseDouble(st.nextToken());
-	        	double low	= Double.parseDouble(st.nextToken());
-	        	double close= Double.parseDouble(st.nextToken());
-	        	long volume = Long.parseLong(st.nextToken().trim());
-	            
-	        	return _prototype.with(datetime, open, high, low, close, volume);
-	        }
-	        return null;
-	    }
-		public void readHeader(String line) throws ParseException {}
-		public boolean expectHeader() { return true; }
-		
-	    private void parseYYYYMMDDWithSep(MutableDateTime dt, String dateStr, String sep) {
-	        StringTokenizer st = new StringTokenizer(dateStr, sep);
-	        int numTokens = st.countTokens();
-	        dt.setMillisSinceMidnight(0);
-	        if (numTokens > 2) {
-	            int iyr = Integer.parseInt(st.nextToken());
-	            int imo = Integer.parseInt(st.nextToken());
-	            int idy = Integer.parseInt(st.nextToken());
-	            dt.setFromYearMonthDay(iyr, imo, idy);
-	        } else {
-	            try {
-	                int ymd = Integer.parseInt(dateStr);
-	                dt.setFromYYYYMMDD(ymd);
-	            } catch(Exception e) {
-	            	e.printStackTrace();
-	            }
-	        }
-	    }
-		
-	}
 	
 	protected Quote					_prototype;
 	protected MutableDateTime		_firstDate;
@@ -151,17 +71,17 @@ public class YahooFinance extends UrlLineReader<Quote> implements QuoteSource {
 	// Existence
 	// ------------------------------------------------------------------------------------
 	
-	protected YahooFinance() {
+	protected YahooNet() {
 		// blocked
 	}
 
 
     /**
-     * Symbol Constructor. Specify the market symbol to load from YahooFinance.
+     * Symbol Constructor. Specify the market symbol to load from YahooNet.
      *
      * @param symbol String market symbol
      */
-	public YahooFinance(String symbol) {
+	public YahooNet(String symbol) {
 		MutableDateTime to = this.generateLastDate(); 
 		commonYahooFinanceInit(new ImmutableQuote(new TimeSpec(), symbol), generateBackSpan(to),to);
 	}
@@ -172,12 +92,12 @@ public class YahooFinance extends UrlLineReader<Quote> implements QuoteSource {
      *
      * @param prototype Quote
      */
-	public YahooFinance(Quote prototype) {
+	public YahooNet(Quote prototype) {
 		MutableDateTime to = this.generateLastDate(); 
 		commonYahooFinanceInit(prototype, generateBackSpan(to),to);
 	}
 	
-	public YahooFinance(Quote prototype, DateTime from, DateTime to) {
+	public YahooNet(Quote prototype, DateTime from, DateTime to) {
 		commonYahooFinanceInit(prototype, from, to);
 	}
 	
@@ -199,12 +119,18 @@ public class YahooFinance extends UrlLineReader<Quote> implements QuoteSource {
 	
     public QuoteListener open(QuoteListener chain) throws QuoteSourceException {
     	try {
-    		QuoteBuffer buffer = new QuoteBuffer();
-    		_output = buffer;
-        	parse(url());
-        	buffer.reverse(chain);
+            YahooBuffer buffer = new YahooBuffer();
+            _output = buffer;
+            parse(url());
+            buffer.reverse(chain);
+        } catch (SocketException se) {
+            throw new QuoteSourceAccessException(se, _prototype.symbol());
+        } catch (ParseException pe) {
+            throw new QuoteSourceParseException(pe, _prototype.symbol());
+        } catch (FileNotFoundException fnfe) {
+            throw new QuoteSourceNotFoundException(fnfe, _prototype.symbol());
     	} catch (Exception e) {
-    		throw new QuoteSourceException(e);
+    		throw new QuoteSourceException(e, _prototype.symbol());
     	}
     	return chain;
     }
@@ -294,7 +220,7 @@ public class YahooFinance extends UrlLineReader<Quote> implements QuoteSource {
                 break;
         }
 
-        StringBuffer urlBuff = new StringBuffer("http://table.finance.yahoo.com/table.csv?");
+        StringBuilder urlBuff = new StringBuilder("http://table.finance.yahoo.com/table.csv?");
         urlBuff.append("a=").append(imoFrom);
         urlBuff.append("&b=").append(idyFrom);
         urlBuff.append("&c=").append(iyrFrom);
@@ -315,7 +241,7 @@ public class YahooFinance extends UrlLineReader<Quote> implements QuoteSource {
     public static void main(String[] args) {
         String symbol = args.length > 0 ? args[0] : "AAPL";
         String fileName = args.length > 1 ? args[1] : "symbol_out.csv";
-        YahooFinance yahoo = new YahooFinance(symbol);
+        YahooNet yahoo = new YahooNet(symbol);
     	try {
             Url2File u2f = new Url2File(yahoo.url(),fileName);
             u2f.read();

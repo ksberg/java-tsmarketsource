@@ -62,7 +62,7 @@ public class Compress2Months extends CompressDayOrGreater {
 		_compressionSpec.units = TimeUnits.MONTH;
 	}
 
-	public Compress2Months(int increment) {
+	public Compress2Months(long increment) {
 		super(increment);
 		_compressionSpec.units = TimeUnits.MONTH;
 	}

@@ -122,7 +122,6 @@ public class MutableQuote extends ImmutableQuote {
     /**
      * Key existence utility to determine mutability.
      * 
-     * @param tick
      * @return ImmutableTick or subclass
      */
     protected ImmutableQuote thisOrCopy() {
@@ -217,10 +216,11 @@ public class MutableQuote extends ImmutableQuote {
      * @param volume long
      * @return Quote
      */
-    public Quote with(long datetime, double open, double high, double low, double close, long volume) {
+    public Quote withDOHLCV(long datetime, double open, double high, double low, double close, long volume) {
         return this._with(datetime, open, high, low, close, volume);
     }
-    
+
+
     
 
 }

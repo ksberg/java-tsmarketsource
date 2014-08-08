@@ -64,7 +64,7 @@ public class Compress2Hours extends Compress2Time {
         super(new TimeSpec(TimeUnits.HOUR, 1));
 	}
 
-	public Compress2Hours(int increment) {
+	public Compress2Hours(long increment) {
 		super(new TimeSpec(TimeUnits.HOUR, increment));
 	}
 
@@ -74,12 +74,12 @@ public class Compress2Hours extends Compress2Time {
 
     @Override
     protected void alignTime(MutableDateTime dt) {
-        dt.setHoursMinutesSeconds(dt.hours(), 0, 0);
+        dt.setHoursMinutesSecondsMillis(dt.hours(), 0, 0, 0);
     }
 
     @Override
     protected void incrementToNextPeriod(MutableDateTime dt) {
-        dt.addHours(_increment);
+        dt.addHours((int)_increment);
     }
 
 }

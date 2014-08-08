@@ -33,6 +33,8 @@ package bitzguild.mkt.event;
 
 import bitzguild.ts.event.BinnedTimeEvent;
 
+import java.text.ParseException;
+
 /**
  * <p>
  * General-purpose historical price quote expressed as open, high, low, close, and volume.
@@ -58,11 +60,16 @@ public interface Quote extends BinnedTimeEvent {
 	public long 	volume();		// number of transactions during period
 
 	public Quote withSymbol(String symbol);
-    public Quote with(long datetime, double open, double high, double low, double close, long volume);
+    public Quote withDOHLCV(long datetime, double open, double high, double low, double close, long volume);
 	
     public Quote merge(Quote that);
     
     public StringBuffer toBuffer(StringBuffer strb);
-	
+    public StringBuffer toCSVBufer(StringBuffer strb);
+
+    public String toCSV();
+    public String csvHeader();
+    public Quote fromCSV(String csvRow) throws ParseException;
+
 
 }

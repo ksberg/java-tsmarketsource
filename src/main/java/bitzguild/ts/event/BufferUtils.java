@@ -58,7 +58,7 @@ public class BufferUtils {
     
     public static StringBuffer pairToBuffer(String name, double value, String format, StringBuffer sb, boolean comma) {
         sb.append("\"").append(name).append("\"").append(":");
-        DecimalFormat decimal = new DecimalFormat("#.000");
+        DecimalFormat decimal = new DecimalFormat(format);
         decimal.format(value, sb, _FieldPos);
         sb.setLength(sb.length()-1);
         if(comma) sb.append(',');

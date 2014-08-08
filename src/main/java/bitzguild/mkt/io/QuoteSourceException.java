@@ -33,16 +33,36 @@ package bitzguild.mkt.io;
 
 public class QuoteSourceException extends Throwable {
 
-	/**
-	 * 
-	 */
-	private static final long serialVersionUID = 1L;
+    /**
+     *
+     */
+    private static final long serialVersionUID = 1L;
 
-	public QuoteSourceException() {
-		super();
-	}
-	
-	public QuoteSourceException(Throwable t) {
-		super(t);
-	}
+    protected String _symbol;
+
+
+    public QuoteSourceException() {
+        super();
+        _symbol = null;
+    }
+
+    public QuoteSourceException(String description, String symbol) {
+        super(description);
+        _symbol = symbol;
+    }
+
+    public QuoteSourceException(Throwable t) {
+        super(t);
+        _symbol = null;
+    }
+
+    public QuoteSourceException(Throwable t, String symbol) {
+        super(t);
+        _symbol = symbol;
+    }
+
+
+
+    public String symbol() { return _symbol; }
+
 }

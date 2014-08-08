@@ -34,6 +34,7 @@ package bitzguild.mkt.event.compress;
 import bitzguild.mkt.event.Quote;
 import bitzguild.mkt.event.QuoteChain;
 import bitzguild.mkt.event.QuoteListener;
+import bitzguild.ts.datetime.MutableDateTime;
 import bitzguild.ts.event.TimeSpec;
 
 /**
@@ -52,4 +53,6 @@ public interface QuoteCompression extends QuoteChain {
     public Quote snapshot();
     public QuoteCompression connect(QuoteListener listener);
     public QuoteListener listener();
+
+    public static long  ZERODAY = new MutableDateTime(1000,1,1).rep();
 }

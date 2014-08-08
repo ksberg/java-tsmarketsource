@@ -31,9 +31,15 @@
 
 package bitzguild.mkt.event;
 
+import bitzguild.ts.datetime.MutableDateTime;
 import bitzguild.ts.event.AbstractTimeEvent;
 import bitzguild.ts.event.BinnedTimeEvent;
 import bitzguild.ts.event.TimeSpec;
+
+import java.text.DecimalFormat;
+import java.text.FieldPosition;
+import java.text.NumberFormat;
+import java.text.ParseException;
 
 
 public class ImmutableQuote extends AbstractTimeEvent implements Quote {
@@ -136,7 +142,6 @@ public class ImmutableQuote extends AbstractTimeEvent implements Quote {
     /**
      * Key existence utility to determine mutability.
      * 
-     * @param tick
      * @return ImmutableTick or subclass
      */
     protected ImmutableQuote thisOrCopy() {
@@ -215,7 +220,7 @@ public class ImmutableQuote extends AbstractTimeEvent implements Quote {
      * @param volume long
      * @return Quote
      */
-    public Quote with(long datetime, double open, double high, double low, double close, long volume) {
+    public Quote withDOHLCV(long datetime, double open, double high, double low, double close, long volume) {
         return (new ImmutableQuote(this))._with(datetime, open, high, low, close, volume);
     }
     
@@ -257,10 +262,64 @@ public class ImmutableQuote extends AbstractTimeEvent implements Quote {
         pairToBuffer("l", _low, "#.000", sb, true);
         pairToBuffer("c", _close, "#.000", sb, true);
         pairToBuffer("v", _volume, sb, true);
-        pairToBuffer("spec", _spec, sb, true);
+        pairToBuffer("spec", _spec, sb, false);
 
 		sb.append('}');
 		return sb;
 	}
+
+
+    public String toCSV() {
+        StringBuffer sb = new StringBuffer();
+        toCSVBufer(sb);
+        return sb.toString();
+    }
+
+    public String csvHeader() { return "Date,Open,High,Low,Close,Volume"; }
+
+    /**
+     * Print Quote as one comma-separated-value row into given StringBuffer.
+     * StringBuffer is with Formatter is more performant than StringBuilder
+     * and formatted decimal string.
+     *
+     * @param sb StringBuffer
+     * @return StringBuffer
+     */
+    public StringBuffer toCSVBufer(StringBuffer sb) {
+
+        (new MutableDateTime(_time)).toBuffer(sb).append(",");
+        formatDoubleInto(_open, sb, true);
+        formatDoubleInto(_high, sb, true);
+        formatDoubleInto(_low, sb, true);
+        formatDoubleInto(_close, sb, true);
+        sb.append(_volume);
+
+        return sb;
+    }
+
+    public Quote fromCSV(String csvRow) throws ParseException {
+        ImmutableQuote q = thisOrCopy();
+        String[] column = csvRow.split(",");
+
+        MutableDateTime dt = MutableDateTime.parse(column[0]);
+        q._time = dt.rep();
+
+        q._open = Double.parseDouble(column[1]);
+        q._high = Double.parseDouble(column[2]);
+        q._low = Double.parseDouble(column[3]);
+        q._close = Double.parseDouble(column[4]);
+        q._volume = Long.parseLong(column[5]);
+
+        return q;
+    }
+
+    public static DecimalFormat DefaultDecimalFormat = new DecimalFormat("#.0000");
+    private static FieldPosition _FieldPos = new FieldPosition(NumberFormat.FRACTION_FIELD);
+
+    protected void formatDoubleInto(Double d, StringBuffer sb, boolean comma) {
+        DefaultDecimalFormat.format(d, sb, _FieldPos);
+        sb.setLength(sb.length()-1);
+        if(comma) sb.append(',');
+    }
 
 }

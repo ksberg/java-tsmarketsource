@@ -182,7 +182,7 @@ public class QuoteGenerator implements Iterator<Quote> {
 		open 	= Math.max(low,Math.max(high,open));
 		close 	= Math.max(low,Math.max(high,close));
 		
-		return _prototype.with(dt.rep(), open, overHigh, underLow, close, volume);
+		return _prototype.withDOHLCV(dt.rep(), open, overHigh, underLow, close, volume);
 	}
 
 	@Override

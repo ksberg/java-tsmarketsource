@@ -96,17 +96,15 @@ public class ImmutableTick implements Tick, Serializable {
     	_volume = 0L;
     }
 
-    
+
     /**
      * Fully parameterized Constructor
      *
-     * @param specrep long
-     * @param time long
-     * @param open double
-     * @param high double
-     * @param low double
-     * @param close double
-     * @param volume long
+     * @param time bitzguild DateTime serialized representation
+     * @param symbol market symbol
+     * @param xchg exchange character
+     * @param price trade settle price (between bid/ask)
+     * @param volume number traded
      */
     public ImmutableTick(long time, String symbol, char xchg, double price, long volume) {
         _time = time;
@@ -119,7 +117,6 @@ public class ImmutableTick implements Tick, Serializable {
     /**
      * Key existence utility to determine mutability.
      * 
-     * @param tick
      * @return ImmutableTick or subclass
      */
     protected ImmutableTick thisOrCopy() {

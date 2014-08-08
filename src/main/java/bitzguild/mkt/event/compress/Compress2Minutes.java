@@ -72,7 +72,7 @@ public class Compress2Minutes extends Compress2Time {
 		super(new TimeSpec(TimeUnits.MINUTE, 1));
 	}
 
-	public Compress2Minutes(int increment) {
+	public Compress2Minutes(long increment) {
 		super(new TimeSpec(TimeUnits.MINUTE, increment));
 	}
 
@@ -81,7 +81,7 @@ public class Compress2Minutes extends Compress2Time {
 	// ------------------------------------------
 
     @Override
-	public void setCompressionLength(int incr) {
+	public void setCompressionLength(long incr) {
 		_increment = Math.max(1, Math.min(incr, COMPRESSION_30));
 		_compressionSpec.length = _increment;
 	}
@@ -92,10 +92,10 @@ public class Compress2Minutes extends Compress2Time {
 
 	protected void incrementToNextPeriod(MutableDateTime dt) {
 		int minutes = dt.minutes();
-		int next = ((minutes-1) / _increment)*_increment + _increment - minutes;
+		long next = ((minutes-1) / _increment)*_increment + _increment - minutes;
 		next = (next == 0) ? _increment : next;
 
-		dt.addMinutes(next);
+		dt.addMinutes((int)next);
 	}
 
 }

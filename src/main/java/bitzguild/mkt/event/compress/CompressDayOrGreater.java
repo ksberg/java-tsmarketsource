@@ -73,7 +73,7 @@ public class CompressDayOrGreater extends Compress2Time {
 		setHMBounds(9, 30, 16, 30);
 	}
 
-	public CompressDayOrGreater(int increment) {
+	public CompressDayOrGreater(long increment) {
         super(new TimeSpec(TimeUnits.DAY,increment));
 		setHMBounds(9, 30, 16, 30);
 	}
